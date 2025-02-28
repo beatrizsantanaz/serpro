@@ -3,29 +3,30 @@ const https = require("https");
 const axios = require("axios");
 require("dotenv").config();
 
-// 🔹 Carregando variáveis de ambiente
+// 🔹 Obtendo variáveis de ambiente
 const CERTIFICADO_BASE64 = process.env.CERTIFICADO_PFX_BASE64;
 const CERT_PASSWORD = process.env.CERT_PASSWORD;
 const CONSUMER_KEY = process.env.CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.CONSUMER_SECRET;
 
+// 🔹 Verificação do certificado
 if (!CERTIFICADO_BASE64) {
   throw new Error("❌ ERRO: Certificado PFX não encontrado nas variáveis de ambiente!");
 }
 
-// 🔹 Criar um arquivo temporário para o certificado na Vercel
-const TEMP_CERT_PATH = "/tmp/temp_cert.pfx"; // Diretório seguro na Vercel
+// 🔹 Criando um caminho seguro para o certificado na Vercel
+const TEMP_CERT_PATH = "/tmp/temp_cert.pfx"; // Diretório permitido na Vercel
 
 try {
-  console.log("📄 Criando certificado temporário...");
+  console.log("📄 Criando certificado temporário na Vercel...");
   fs.writeFileSync(TEMP_CERT_PATH, Buffer.from(CERTIFICADO_BASE64, "base64"));
-  console.log("✅ Certificado temporário criado com sucesso.");
+  console.log("✅ Certificado criado com sucesso.");
 } catch (error) {
   console.error("❌ ERRO ao criar o certificado temporário:", error.message);
   process.exit(1);
 }
 
-// 🔹 Criando o agente HTTPS com o certificado
+// 🔹 Criando o agente HTTPS usando o certificado
 const agent = new https.Agent({
   pfx: fs.readFileSync(TEMP_CERT_PATH),
   passphrase: CERT_PASSWORD,
@@ -48,7 +49,7 @@ const getTokens = async () => {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Authorization": `Basic ${authHeader}`,
-          "Role-Type": "TERCEIROS", // Se a API exigir essa role, senão pode ser removida
+          "Role-Type": "TERCEIROS",
         },
       }
     );
@@ -56,7 +57,7 @@ const getTokens = async () => {
     console.log("✅ Resposta da API do Serpro:", response.data);
 
     const accessToken = response.data.access_token;
-    const jwtToken = response.data.jwt_token || null; // Se não vier, retorna null
+    const jwtToken = response.data.jwt_token || null; // Caso não seja retornado separadamente
 
     if (!accessToken) {
       console.error("❌ Erro: O Bearer Token não foi retornado.");
