@@ -3,16 +3,37 @@ const https = require("https");
 const axios = require("axios");
 require("dotenv").config();
 
-const CERT_PATH = process.env.CERT_PATH;
+// 🔹 Carregando variáveis de ambiente
+const CERTIFICADO_BASE64 = process.env.CERTIFICADO_PFX_BASE64;
 const CERT_PASSWORD = process.env.CERT_PASSWORD;
 const CONSUMER_KEY = process.env.CONSUMER_KEY;
 const CONSUMER_SECRET = process.env.CONSUMER_SECRET;
 
+if (!CERTIFICADO_BASE64) {
+  throw new Error("❌ ERRO: Certificado PFX não encontrado nas variáveis de ambiente!");
+}
+
+// 🔹 Criar um arquivo temporário para o certificado na Vercel
+const TEMP_CERT_PATH = "/tmp/temp_cert.pfx"; // Diretório seguro na Vercel
+
+try {
+  console.log("📄 Criando certificado temporário...");
+  fs.writeFileSync(TEMP_CERT_PATH, Buffer.from(CERTIFICADO_BASE64, "base64"));
+  console.log("✅ Certificado temporário criado com sucesso.");
+} catch (error) {
+  console.error("❌ ERRO ao criar o certificado temporário:", error.message);
+  process.exit(1);
+}
+
+// 🔹 Criando o agente HTTPS com o certificado
 const agent = new https.Agent({
-  pfx: fs.readFileSync(CERT_PATH),
+  pfx: fs.readFileSync(TEMP_CERT_PATH),
   passphrase: CERT_PASSWORD,
 });
 
+/**
+ * 🔄 Obtém os tokens de autenticação da API do Serpro
+ */
 const getTokens = async () => {
   console.log("🔄 Obtendo novo Bearer Token e JWT Token...");
 
@@ -27,7 +48,7 @@ const getTokens = async () => {
         headers: {
           "Content-Type": "application/x-www-form-urlencoded",
           "Authorization": `Basic ${authHeader}`,
-          "Role-Type": "TERCEIROS",
+          "Role-Type": "TERCEIROS", // Se a API exigir essa role, senão pode ser removida
         },
       }
     );
@@ -35,22 +56,27 @@ const getTokens = async () => {
     console.log("✅ Resposta da API do Serpro:", response.data);
 
     const accessToken = response.data.access_token;
-    const jwtToken = response.data.jwt_token; // Se o Serpro retornar um JWT separado
+    const jwtToken = response.data.jwt_token || null; // Se não vier, retorna null
 
     if (!accessToken) {
       console.error("❌ Erro: O Bearer Token não foi retornado.");
       return null;
     }
 
-    console.log("✅ Bearer Token obtido:", accessToken);
-    console.log("✅ JWT Token obtido:", jwtToken || "Não retornado separadamente.");
+    console.log("✅ Bearer Token obtido com sucesso!");
+    if (jwtToken) {
+      console.log("✅ JWT Token obtido!");
+    } else {
+      console.warn("⚠️ Atenção: O JWT Token não foi retornado separadamente.");
+    }
 
     return { accessToken, jwtToken };
   } catch (error) {
     console.error("❌ Erro ao obter tokens:");
-    console.log(error.response ? error.response.data : error.message);
+    console.error(error.response ? error.response.data : error.message);
     return null;
   }
 };
 
-module.exports = { getTokens };
+// 🔹 Exportando funções e agente HTTPS
+module.exports = { getTokens, agent };
