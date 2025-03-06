@@ -9,7 +9,7 @@ app.get("/", (req, res) => {
 });
 
 app.use(express.json()); // Suporte para JSON no corpo da requisição
-app.use("/api", guiaRoutes); // Aqui registramos as rotas do DAS
+//app.use("/api", guiaRoutes); // Aqui registramos as rotas do DAS
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando na porta ${PORT}`);
