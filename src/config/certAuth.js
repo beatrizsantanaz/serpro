@@ -56,9 +56,15 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
             }
         };
 
-        const response = await axios.post('URL_DO_SERPRO_AQUI', payload, {
-            headers: { 'Content-Type': 'application/json' }
-        });
+        const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/Apoiar', payload, {
+            
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  jwt_token: jwtToken, // Adicionando o JWT Token no cabeçalho
+                  "Content-Type": "application/json",
+                },
+              }
+            );
 
         console.log('✅ Resposta do Serpro:', response.data);
         return response.data; // Retorna o token obtido
@@ -75,6 +81,7 @@ async function autenticarViaCertificado(cnpjCliente) {
 
         // 1. Gerar certificado assinado
         const certificadoAssinado = await gerarCertificadoAssinado();
+        console.log("📜 Certificado gerado:", certificadoAssinado);
 
         // 2. Enviar certificado para autenticação no Serpro
         const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente);
