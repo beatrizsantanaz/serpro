@@ -1,6 +1,5 @@
 const express = require("express");
 const guiaRoutes = require("./routes/guiaRoutes");
-const { obterTokenAutenticacao } = require('./config/serproAuth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
