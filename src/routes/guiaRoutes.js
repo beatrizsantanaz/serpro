@@ -2,22 +2,19 @@ const express = require("express");
 const axios = require("axios");
 const { getTokens } = require("../config/auth");
 const { getLastTwoMonths, getFutureConsolidationDate } = require("../utils/dateUtils");
+const { autenticarViaCertificado } = require("../certAuth"); // 🔹 Importando autenticação via certificado
+
+require('dotenv').config();
 
 const router = express.Router();
 
 const WEBHOOK_URLS = {
-    "CF Contabilidade":"https://webhook.cfcontabilidade.com",
-    "CF Smart":"https://n8n-n8n.k6fcpj.easypanel.host/webhook/32d4027e-cb57-49b1-85d5-76a472d001d0"
+    "CF Contabilidade": "https://webhook.cfcontabilidade.com",
+    "CF Smart": "https://n8n-n8n.k6fcpj.easypanel.host/webhook/32d4027e-cb57-49b1-85d5-76a472d001d0"
 };
 
 router.post("/das", async (req, res) => {
     try {
-        const tokens = await getTokens();
-        if (!tokens) {
-            return res.status(500).json({ erro: "Erro ao obter tokens do Serpro" });
-        }
-
-        const { accessToken, jwtToken } = tokens;
         const { cnpj_contratante, cnpj_autor, cnpj_contribuinte, periodoApuracao, recalcular, cliente, telefone } = req.body;
 
         if (!cnpj_contratante || !cnpj_autor || !cnpj_contribuinte || !cliente) {
@@ -26,11 +23,35 @@ router.post("/das", async (req, res) => {
             });
         }
 
+        // 🔹 Determinar período de apuração
         const periodo = periodoApuracao || getLastTwoMonths()[1];
+
+        let tokens;
+
+        if (cnpj_contratante === cnpj_autor) {
+            // 🔹 O contratante tem procuração → Autenticação normal
+            console.log("✅ O contratante tem procuração. Autenticando via getTokens...");
+            tokens = await getTokens();
+        } else {
+            // 🔹 O contratante NÃO tem procuração → Autenticação via certificado
+            console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
+            tokens = await autenticarViaCertificado(cnpj_contribuinte);
+
+            if (!tokens) {
+                return res.status(500).json({ erro: "Erro ao autenticar via certificado no Serpro." });
+            }
+        }
+
+        if (!tokens || !tokens.accessToken) {
+            return res.status(500).json({ erro: "Erro ao obter tokens do Serpro" });
+        }
+
+        const { accessToken, jwtToken } = tokens;
 
         let requestBody;
 
         if (recalcular) {
+            // 🔹 Recalcular DAS
             const dataConsolidacao = getFutureConsolidationDate(5);
             requestBody = {
                 contratante: { numero: cnpj_contratante.trim(), tipo: 2 },
@@ -45,6 +66,7 @@ router.post("/das", async (req, res) => {
             };
             console.log("🔍 Recalculando DAS com:", requestBody);
         } else {
+            // 🔹 Consultar DAS normal
             requestBody = {
                 contratante: { numero: cnpj_contratante.trim(), tipo: 2 },
                 autorPedidoDados: { numero: cnpj_autor.trim(), tipo: 2 },
@@ -59,6 +81,7 @@ router.post("/das", async (req, res) => {
             console.log("🔍 Consultando DAS com:", requestBody);
         }
 
+        // 🔹 Enviar requisição ao Serpro
         const response = await axios.post(
             "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Emitir",
             requestBody,
@@ -75,7 +98,7 @@ router.post("/das", async (req, res) => {
 
         res.status(200).json({ sucesso: true, dadosRetornados: response.data });
 
-        // Enviar webhook em segundo plano
+        // 🔹 Enviar webhook em segundo plano
         const webhookUrl = WEBHOOK_URLS[cliente] || "https://contabhub.app.n8n.cloud/webhook/default";
         const webhookPayload = {
             ...response.data,
