@@ -18,11 +18,12 @@ async function gerarCertificadoAssinado() {
         });
         
         // 🔹 Log para depuração
-        console.log("📜 Resposta da API intermediária:", response.data);
+        console.log("📜 Resposta da API intermediária:", JSON.stringify(response.data, null, 2));
         
-        if (response.data && response.data.certificado) {
-            console.log("✅ Certificado gerado com sucesso.");
-            return response.data.certificado;
+        // 🔹 Extraindo apenas o campo `xml_base64`
+        if (response.data && response.data.xml_base64) {
+            console.log("✅ Certificado em Base64 extraído com sucesso.");
+            return response.data.xml_base64;  // ✅ Agora pegamos o campo correto
         } else {
             console.error("❌ Erro: Certificado não foi retornado pela API intermediária.");
             throw new Error('Erro ao obter certificado assinado.');
