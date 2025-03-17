@@ -4,7 +4,6 @@ require('dotenv').config();
 // 🔹 Função para gerar certificado assinado via API intermediária
 async function gerarCertificadoAssinado() {
     try {
-        console.log("🔄 Chamando API intermediária para gerar certificado...");
         const response = await axios.post('https://planilha.cffranquias.com.br/integra/api.php', {
             "arquivoCertificado": "ativo.pfx",
             "senhaCertificado": "Ativo@2024_",
@@ -17,11 +16,15 @@ async function gerarCertificadoAssinado() {
         }, {
             headers: { 'Content-Type': 'application/json' }
         });
-
+        
+        // 🔹 Log para depuração
+        console.log("📜 Resposta da API intermediária:", response.data);
+        
         if (response.data && response.data.certificado) {
             console.log("✅ Certificado gerado com sucesso.");
-            return response.data.certificado; // Certificado assinado em base64
+            return response.data.certificado;
         } else {
+            console.error("❌ Erro: Certificado não foi retornado pela API intermediária.");
             throw new Error('Erro ao obter certificado assinado.');
         }
     } catch (error) {
