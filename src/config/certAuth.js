@@ -4,6 +4,7 @@ require('dotenv').config();
 // 🔹 Função para gerar certificado assinado via API intermediária
 async function gerarCertificadoAssinado() {
     try {
+        console.log("🔄 Chamando API intermediária para gerar certificado...");
         const response = await axios.post('https://planilha.cffranquias.com.br/integra/api.php', {
             "arquivoCertificado": "ativo.pfx",
             "senhaCertificado": "Ativo@2024_",
@@ -16,16 +17,16 @@ async function gerarCertificadoAssinado() {
         }, {
             headers: { 'Content-Type': 'application/json' }
         });
-        
-        // 🔹 Log para depuração
+
+        // 🔹 Log para depuração da resposta da API
         console.log("📜 Resposta da API intermediária:", JSON.stringify(response.data, null, 2));
-        
+
         // 🔹 Extraindo apenas o campo `xml_base64`
         if (response.data && response.data.xml_base64) {
             console.log("✅ Certificado em Base64 extraído com sucesso.");
-            return response.data.xml_base64;  // ✅ Agora pegamos o campo correto
+            return response.data.xml_base64;  // ✅ Pegando apenas o valor correto
         } else {
-            console.error("❌ Erro: Certificado não foi retornado pela API intermediária.");
+            console.error("❌ Erro: Certificado `xml_base64` não foi retornado pela API intermediária.");
             throw new Error('Erro ao obter certificado assinado.');
         }
     } catch (error) {
@@ -33,6 +34,7 @@ async function gerarCertificadoAssinado() {
         throw error;
     }
 }
+
 
 // 🔹 Função para autenticar no Serpro usando o certificado assinado
 async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
@@ -60,7 +62,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
             }
         };
 
-        const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador-trial/v1/Apoiar', payload, {
+        const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, {
             
                 headers: {
                   Authorization: `Bearer ${accessToken}`,
