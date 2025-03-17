@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { getTokens } = require('./auth'); // 🔹 Importando função de autenticação
 require('dotenv').config();
 
 // 🔹 Função para gerar certificado assinado via API intermediária
@@ -39,7 +40,16 @@ async function gerarCertificadoAssinado() {
 // 🔹 Função para autenticar no Serpro usando o certificado assinado
 async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
     try {
-        console.log("🔄 Enviando certificado assinado para autenticação no Serpro...");
+        console.log("🔄 Obtendo tokens de autenticação...");
+        const tokens = await getTokens(); // 🔹 Obtendo accessToken e jwtToken
+
+        if (!tokens || !tokens.accessToken) {
+            console.error("❌ Erro ao obter tokens do Serpro.");
+            throw new Error('Falha na autenticação com o Serpro.');
+        }
+
+        console.log("✅ Tokens obtidos com sucesso.");
+
 
         const payload = {
             "contratante": {
@@ -64,13 +74,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
 
         const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, {
             
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                  jwt_token: jwtToken, // Adicionando o JWT Token no cabeçalho
-                  "Content-Type": "application/json",
-                },
-              }
-            );
+            headers: {
+                Authorization: `Bearer ${tokens.accessToken}`, // 🔹 Agora passamos o token correto
+                jwt_token: tokens.jwtToken, // 🔹 Enviando JWT Token no header
+                "Content-Type": "application/json"
+            }
+        });
 
         console.log('✅ Resposta do Serpro:', response.data);
         return response.data; // Retorna o token obtido
