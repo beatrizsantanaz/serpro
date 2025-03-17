@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const { getTokens } = require("../config/auth");
 const { getLastTwoMonths, getFutureConsolidationDate } = require("../utils/dateUtils");
+const { autenticarViaCertificado } = require("../config/certAuth");
 
 require('dotenv').config();
 
