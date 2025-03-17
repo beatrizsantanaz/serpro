@@ -50,6 +50,8 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
 
         console.log("✅ Tokens obtidos com sucesso.");
 
+        // 🔹 Log para verificar qual CNPJ está sendo enviado
+        console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
 
         const payload = {
             "contratante": {
@@ -68,9 +70,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
                 "idSistema": "AUTENTICAPROCURADOR",
                 "idServico": "ENVIOXMLASSINADO81",
                 "versaoSistema": "1.0",
-                "dados": JSON.stringify({ xml: certificadoAssinado }) // Certificado em Base64
+                "dados": JSON.stringify({ xml: certificadoAssinado }) // 🔹 Agora o certificado correto é enviado
             }
         };
+
+        console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
+        console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2)); // 🔹 Log do payload completo
 
         const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, {
             
@@ -81,10 +86,10 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
             }
         });
 
-        console.log('✅ Resposta do Serpro:', response.data);
-        return response.data; // Retorna o token obtido
+        console.log("✅ Resposta do Serpro:", response.data);
+        return response.data; // 🔹 Retorna os dados da autenticação do Serpro
     } catch (error) {
-        console.error('❌ Erro ao autenticar no Serpro:', error.message);
+        console.error("❌ Erro ao autenticar no Serpro:", error.response ? error.response.data : error.message);
         throw error;
     }
 }
