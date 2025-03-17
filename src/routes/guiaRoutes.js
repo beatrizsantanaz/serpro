@@ -2,7 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const { getTokens } = require("../config/auth");
 const { getLastTwoMonths, getFutureConsolidationDate } = require("../utils/dateUtils");
-const { autenticarViaCertificado } = require("../certAuth"); // 🔹 Importando autenticação via certificado
+const { autenticarViaCertificado } = require("..config/certAuth"); // 🔹 Importando autenticação via certificado
 
 require('dotenv').config();
 
