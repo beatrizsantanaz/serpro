@@ -1,7 +1,6 @@
 const express = require("express");
 const guiaRoutes = require("./routes/guiaRoutes");
-const { consultarSerpro } = require("./serproApi");
-const { obterTokens } = require("./authProcurador");
+const { consultarSerpro } = require("./src/config/serproApi"); // Caminho ajustado para o diretório correto
 
 
 const app = express();
@@ -19,8 +18,8 @@ app.post("/consultar", async (req, res) => {
   };
 
   try {
-    // Passar os dados para a função que obtém os tokens
-    const result = await obterTokens(dados);
+    // Usando consultarSerpro para obter os dados da API externa
+    const result = await consultarSerpro(dados); // Chama a função consultarSerpro
     res.json(result); // Retorna os dados obtidos da API externa
   } catch (error) {
     res.status(500).json({ erro: "Erro ao consultar Serpro", detalhes: error.message });

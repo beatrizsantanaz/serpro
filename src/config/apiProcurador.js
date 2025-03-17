@@ -1,5 +1,3 @@
-// serproApi.js
-
 const axios = require("axios");
 const { obterTokens } = require("./authProcurador");
 
