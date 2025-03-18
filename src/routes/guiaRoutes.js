@@ -28,29 +28,32 @@ router.post("/das", async (req, res) => {
 
         console.log("📦 Cache atual antes de pegar o Token do Procurador:", JSON.stringify(cache, null, 2));
 
-        let tokens = null;
-        let procuradorToken = cache["autenticar_procurador_token"] || null;
-        
-        if (cnpj_contratante === cnpj_autor) {
-            console.log("✅ O contratante tem procuração. Autenticando via getTokens...");
-            tokens = await getTokens();
-        } else {
+         // 🔹 Se não há procuração, precisa autenticar via Certificado primeiro
+        if (cnpj_contratante !== cnpj_autor) {
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
             tokens = await autenticarViaCertificado(cnpj_contribuinte);
-        
-            // 🛑 Agora, tokens está definido e podemos acessá-lo com segurança
-            procuradorToken = cache["autenticar_procurador_token"] || tokens.procuradorToken || null;
+
+            if (!tokens) {
+                return res.status(500).json({ erro: "Erro ao autenticar via certificado no Serpro." });
+            }
+
+            // 🛑 Armazenando o Token do Procurador
+            procuradorToken = tokens.procuradorToken;
+            cache["procurador_token"] = procuradorToken;
         
             if (!procuradorToken) {
                 return res.status(500).json({ erro: "Erro: Token do Procurador não encontrado após autenticação." });
             }
-            console.log("✅ Token do Procurador obtido:", procuradorToken);
+        } else {
+            // 🔹 Se há procuração, autentica normalmente
+            console.log("✅ O contratante tem procuração. Autenticando via getTokens...");
+            tokens = await getTokens();
         }
-        
+
         if (!tokens || !tokens.accessToken) {
             return res.status(500).json({ erro: "Erro ao obter tokens do Serpro" });
         }
-        
+
         const { accessToken, jwtToken } = tokens;
 
         let requestBody;
@@ -93,8 +96,8 @@ const headers = {
     "Content-Type": "application/json"
 };
 
-// 🔹 Adiciona o Token do Procurador, se necessário
-if (procuradorToken) {
+  // 🔹 Adiciona o Token do Procurador, se necessário
+  if (procuradorToken) {
     headers["autenticar_procurador_token"] = procuradorToken;
     console.log("✅ Token do Procurador incluído no header.");
 }
