@@ -2,14 +2,14 @@ const axios = require('axios');
 const { getTokens } = require('./auth'); // 🔹 Importando função de autenticação
 require('dotenv').config();
 
-const cache = {}; // 🔹 Cache para armazenar o etag/token
+const cache = {}; // 🔹 Cache para armazenar tokens temporários
 
-// 🔹 Função para recuperar o token do cache
+// 🔹 Função para recuperar token do cache
 function obterTokenDoCache(chave) {
     return cache[chave] || null;
 }
 
-// 🔹 Função para armazenar o token do procurador no cache
+// 🔹 Função para armazenar token no cache
 function armazenarTokenNoCache(chave, valor) {
     cache[chave] = valor;
     console.log(`✅ Token armazenado no cache: ${chave} => ${valor}`);
@@ -38,7 +38,7 @@ async function gerarCertificadoAssinado() {
             console.log("✅ Certificado em Base64 extraído com sucesso.");
             return response.data.xml_base64;
         } else {
-            console.error("❌ Erro: Certificado `xml_base64` não foi retornado pela API intermediária.");
+            console.error("❌ Erro: Certificado `xml_base64` não foi retornado.");
             throw new Error('Erro ao obter certificado assinado.');
         }
     } catch (error) {
@@ -62,7 +62,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        // 🔹 Verifica se já temos o etag armazenado
         let etagToken = cache[cnpjAutorPedido] || null;
 
         // 🔹 Definição correta do payload
@@ -90,27 +89,15 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
         console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
-        // 🔹 Recupera o Token do Procurador do cache
-        const procuradorToken = obterTokenDoCache("autenticar_procurador_token");
-
-        if (!procuradorToken) {
-            console.error("❌ Erro: Token do procurador não encontrado no cache.");
-            return;
-        }
-
-        console.log("🆔 Token do Procurador encontrado:", procuradorToken);
-
-        // 🔹 Define os headers corretamente
         const headers = {
             Authorization: `Bearer ${tokens.accessToken}`,
             jwt_token: tokens.jwtToken,
-            autenticar_procurador_token: procuradorToken, // Adicionado ao header
             "Content-Type": "application/json"
         };
 
         if (etagToken && cnpjAutorPedido !== cnpjContratante) {
             console.log("⚡ Usando token etag armazenado:", etagToken);
-            headers["If-None-Match"] = etagToken; // Adiciona o etag ao header
+            headers["If-None-Match"] = etagToken;
         }
 
         // 🔹 Faz a requisição ao Serpro
@@ -120,11 +107,16 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             { headers }
         );
 
-        console.log("✅ Resposta do Serpro:", response.data);
+        console.log("✅ Resposta da API Serpro:", JSON.stringify(response.data, null, 2));
+        console.log("📥 Headers da resposta:", JSON.stringify(response.headers, null, 2));
 
-        // 🔹 Armazena o token do procurador no cache caso seja recebido
-        if (response.data && response.data.etag) {
-            armazenarTokenNoCache("autenticar_procurador_token", response.data.etag);
+        // 🔹 Verifica se o token do procurador veio no header da resposta
+        if (response.headers && response.headers['autenticar_procurador_token']) {
+            const procuradorToken = response.headers['autenticar_procurador_token'];
+            armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
+            console.log("✅ Token do Procurador armazenado:", procuradorToken);
+        } else {
+            console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
         }
 
         return response.data;
@@ -154,9 +146,8 @@ async function autenticarViaCertificado(cnpjCliente) {
         const certificadoAssinado = await gerarCertificadoAssinado();
         console.log("📜 Certificado gerado com sucesso.");
 
-        // 🔹 Definição dos CNPJs corretamente
-        const cnpjContratante = "17422651000172"; // ✅ Corrigido
-        const cnpjAutorPedido = "28076286000108"; // ✅ Corrigido
+        const cnpjContratante = "17422651000172";
+        const cnpjAutorPedido = "28076286000108";
 
         // 🔹 Enviar certificado para autenticação no Serpro
         const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
