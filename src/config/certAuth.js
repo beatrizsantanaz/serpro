@@ -16,6 +16,7 @@ function armazenarTokenNoCache(chave, valor) {
     console.log("📦 Estado atual do cache:", JSON.stringify(cache, null, 2));
 }
 
+
 // 🔹 Função para gerar certificado assinado via API intermediária
 async function gerarCertificadoAssinado() {
     try {
@@ -59,8 +60,9 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        // 🔹 Recupera token do cache, se existir
+        // 🔹 Recupera `etag` do cache
         let etag = obterTokenDoCache("autenticar_procurador_token");
+        console.log(`🔍 ETag recuperado do cache: ${etag}`);
 
         const payload = {
             "contratante": { "numero": cnpjContratante, "tipo": 2 },
@@ -96,34 +98,29 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         console.log("✅ Resposta da API Serpro recebida!");
 
-        // 🔹 Extraindo corretamente o token do procurador do ETag
-        let procuradorToken = null;
+        // 🔹 Extraindo o `etag` do header da resposta (armazenando sem modificações)
         if (response.headers["etag"]) {
             const etagValue = response.headers["etag"];
+            console.log(`📥 Novo ETag recebido: ${etagValue}`);
 
-            // 🔹 Removendo o prefixo "autenticar_procurador_token:"
-            if (etagValue.startsWith("autenticar_procurador_token:")) {
-                procuradorToken = etagValue.replace("autenticar_procurador_token:", "").trim();
-            }
+            // 🔹 Armazena o `etag` completo no cache para análise posterior
+            armazenarTokenNoCache("autenticar_procurador_token", etagValue);
         }
 
-        if (procuradorToken) {
-            armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-            console.log("✅ Token do Procurador armazenado com sucesso:", procuradorToken);
-            return { procuradorToken };
-        } else {
-            console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
-            throw new Error("Erro ao obter o Token do Procurador.");
-        }
+        return { status: "Sucesso" };
     } catch (error) {
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
 
-            // 🔹 Se a resposta for 304, buscamos no cache
-            const cachedToken = obterTokenDoCache("autenticar_procurador_token");
-            if (cachedToken) {
-                console.log("✅ Recuperando Token do Procurador do cache:", cachedToken);
-                return { procuradorToken: cachedToken };
+            // 🔹 Log detalhado da resposta 304
+            console.log("📥 Resposta completa da API Serpro:", JSON.stringify(error.response.headers, null, 2));
+
+            // 🔹 Recuperando `etag` do cache e mostrando o valor real armazenado
+            const cachedEtag = obterTokenDoCache("autenticar_procurador_token");
+            console.log(`🔍 Token armazenado no cache: ${cachedEtag}`);
+
+            if (cachedEtag) {
+                return { procuradorToken: cachedEtag };
             }
 
             throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
