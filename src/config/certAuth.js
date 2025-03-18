@@ -108,13 +108,18 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("📥 Headers da resposta:", JSON.stringify(response.headers, null, 2));
 
         // 🔹 Verifica se o token do procurador veio no header da resposta
-        if (procuradorToken) {
-            armazenarTokenNoCache("procurador_token", procuradorToken);
-            return { procuradorToken };
-        } else {
-            console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
-            throw new Error("Erro ao obter o Token do Procurador.");
-        }
+        const procuradorToken = response.headers['autenticar_procurador_token'] || 
+                        response.headers['Autenticar-Procurador-Token'] || 
+                        response.headers['AUTENTICAR_PROCURADOR_TOKEN'];
+
+if (procuradorToken) {
+    armazenarTokenNoCache("procurador_token", procuradorToken);
+    console.log("✅ Token do Procurador armazenado:", procuradorToken);
+    return { procuradorToken }; // 🔹 Agora retornamos corretamente o token
+} else {
+    console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
+    throw new Error("Erro ao obter o Token do Procurador.");
+}
     } catch (error) {
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
@@ -142,14 +147,15 @@ async function autenticarViaCertificado(cnpjCliente) {
         const cnpjContratante = "17422651000172";
         const cnpjAutorPedido = "28076286000108";
 
-        const procuradorToken = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
+        // 🔹 Enviar certificado para autenticação no Serpro
+        const result = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
 
-        if (!procuradorToken) {
+        if (!result || !result.procuradorToken) {
             throw new Error("❌ Erro ao obter o Token do Procurador.");
         }
 
         console.log('🚀 Autenticação via certificado concluída com sucesso.');
-        return procuradorToken; // 🔹 Retorna explicitamente o Token do Procurador!
+        return result; // 🔹 Retornamos um objeto com o token
     } catch (error) {
         console.error('❌ Erro no processo de autenticação via certificado:', error.message);
         return null;
