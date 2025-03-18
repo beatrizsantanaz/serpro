@@ -33,13 +33,10 @@ async function gerarCertificadoAssinado() {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        console.log("📜 Resposta da API intermediária:", JSON.stringify(response.data, null, 2));
-
         if (response.data && response.data.xml_base64) {
             console.log("✅ Certificado em Base64 extraído com sucesso.");
             return response.data.xml_base64;
         } else {
-            console.error("❌ Erro: Certificado `xml_base64` não foi retornado.");
             throw new Error('Erro ao obter certificado assinado.');
         }
     } catch (error) {
@@ -48,6 +45,7 @@ async function gerarCertificadoAssinado() {
     }
 }
 
+
 // 🔹 Função para autenticar no Serpro usando o certificado assinado
 async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante) {
     try {
@@ -55,7 +53,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         const tokens = await getTokens();
 
         if (!tokens || !tokens.accessToken) {
-            console.error("❌ Erro ao obter tokens do Serpro.");
             throw new Error('Falha na autenticação com o Serpro.');
         }
 
@@ -96,8 +93,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             "Content-Type": "application/json"
         };
 
-        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
-            console.log("⚡ Usando token etag armazenado:", etagToken);
+         if (etagToken && cnpjAutorPedido !== cnpjContratante) {
             headers["If-None-Match"] = etagToken;
         }
 
@@ -112,35 +108,27 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("📥 Headers da resposta:", JSON.stringify(response.headers, null, 2));
 
         // 🔹 Verifica se o token do procurador veio no header da resposta
-        if (response.headers) {
-            const procuradorToken = response.headers['autenticar_procurador_token'] || 
-                                    response.headers['Autenticar-Procurador-Token'] || 
-                                    response.headers['AUTENTICAR_PROCURADOR_TOKEN'];
-        
-            if (procuradorToken) {
-                armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-                console.log("✅ Token do Procurador armazenado:", procuradorToken);
-            } else {
-                console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
-            }
+        if (procuradorToken) {
+            armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
+            console.log("✅ Token do Procurador armazenado:", procuradorToken);
+            return procuradorToken; // 🔹 Agora retornamos explicitamente o token!
+        } else {
+            console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
+            return null;
         }
-        
-        return response.data;
     } catch (error) {
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
             const etag = error.response.headers['etag'];
-
             if (etag) {
                 console.log("✅ Armazenando novo etag no cache:", etag);
                 cache[cnpjAutorPedido] = etag;
             }
-
-            return { message: "Usando cache", etag };
+            return cache["autenticar_procurador_token"] || null;
         }
 
         console.error("❌ Erro ao autenticar no Serpro:", error.response ? error.response.data : error.message);
-        throw error;
+        return null;
     }
 }
 
@@ -155,11 +143,14 @@ async function autenticarViaCertificado(cnpjCliente) {
         const cnpjContratante = "17422651000172";
         const cnpjAutorPedido = "28076286000108";
 
-        // 🔹 Enviar certificado para autenticação no Serpro
-        const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
+        const procuradorToken = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
+
+        if (!procuradorToken) {
+            throw new Error("❌ Erro ao obter o Token do Procurador.");
+        }
 
         console.log('🚀 Autenticação via certificado concluída com sucesso.');
-        return tokens;
+        return procuradorToken; // 🔹 Retorna explicitamente o Token do Procurador!
     } catch (error) {
         console.error('❌ Erro no processo de autenticação via certificado:', error.message);
         return null;
