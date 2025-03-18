@@ -97,10 +97,13 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         console.log("✅ Resposta da API Serpro recebida!");
 
-        // Extrai e armazena o ETag no cache
+        // Captura e armazena o `etag` no cache
         if (response.headers && response.headers['etag']) {
             let etagValue = response.headers['etag'].replace(/"/g, ''); // Remove aspas duplas
             console.log(`📥 ETag bruto recebido: ${etagValue}`);
+
+            // Armazena o `etag` completo para inspeção
+            armazenarTokenNoCache("etag_bruto", etagValue);
 
             if (etagValue.startsWith("autenticar_procurador_token:")) {
                 let procuradorToken = etagValue.split(":")[1]; // Extrai o token após ":"
@@ -110,7 +113,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
                 armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
             }
         }
-
+        
         return { status: "Sucesso" };
     } catch (error) {
         if (error.response && error.response.status === 304) {
@@ -119,14 +122,28 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             // Exibe todos os headers da resposta para análise
             console.log("📥 Headers completos da resposta 304:", JSON.stringify(error.response.headers, null, 2));
 
-            // Recupera o token do cache
-            const cachedToken = obterTokenDoCache("autenticar_procurador_token");
-            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedToken}`);
+            // Extrai o `etag` do cabeçalho da resposta
+            let etagBruto = error.response.headers['etag'];
 
-            if (cachedToken) {
-                return { etag: cachedToken };
+            if (etagBruto) {
+                etagBruto = etagBruto.replace(/"/g, ''); // Remove aspas duplas
+                console.log(`📥 ETag extraído do erro 304: ${etagBruto}`);
+
+                // Armazena o `etag` bruto no cache
+                armazenarTokenNoCache("etag_bruto_304", etagBruto);
+
+                // Extraindo apenas o token do procurador
+                if (etagBruto.startsWith("autenticar_procurador_token:")) {
+                    let procuradorToken = etagBruto.split(":")[1]; // Extrai o token após ":"
+                    console.log(`✅ Token do Procurador extraído do erro 304: ${procuradorToken}`);
+
+                    // Armazena o token no cache
+                    armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
+                    return { procuradorToken };
+                }
             }
 
+            // Se não encontrou no cache, retorna erro
             throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
         }
 
