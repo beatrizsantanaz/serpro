@@ -59,7 +59,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        // 🔹 Recupera token do cache
+        // 🔹 Recupera token do cache, se existir
         let etag = obterTokenDoCache("autenticar_procurador_token");
 
         const payload = {
@@ -82,7 +82,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             "Content-Type": "application/json"
         };
 
-        // 🔹 Envia o `ETag` se já estiver no cache
+        // 🔹 Se já temos um `etag`, enviamos para evitar reprocessamento
         if (etag) {
             headers["If-None-Match"] = etag;
             console.log("🔹 Enviando ETag no Header:", etag);
@@ -100,6 +100,8 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         let procuradorToken = null;
         if (response.headers["etag"]) {
             const etagValue = response.headers["etag"];
+
+            // 🔹 Removendo o prefixo "autenticar_procurador_token:"
             if (etagValue.startsWith("autenticar_procurador_token:")) {
                 procuradorToken = etagValue.replace("autenticar_procurador_token:", "").trim();
             }
@@ -117,6 +119,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
 
+            // 🔹 Se a resposta for 304, buscamos no cache
             const cachedToken = obterTokenDoCache("autenticar_procurador_token");
             if (cachedToken) {
                 console.log("✅ Recuperando Token do Procurador do cache:", cachedToken);
