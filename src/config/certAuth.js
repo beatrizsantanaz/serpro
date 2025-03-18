@@ -57,6 +57,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         // 🔹 Verifica se o autor do pedido é diferente do contratante e se já temos o etag armazenado
         let etagToken = cache[cnpjAutorPedido] || null;
 
+        // 🔹 Definição correta do payload
         const payload = {
             "contratante": {
                 "numero": cnpjContratante,
@@ -78,6 +79,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             }
         };
 
+
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
         console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
@@ -85,9 +87,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         const headers = {
             Authorization: `Bearer ${tokens.accessToken}`,
             jwt_token: tokens.jwtToken,
-            "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Pragma": "no-cache"
+            "Content-Type": "application/json"
         };
 
         if (etagToken && cnpjAutorPedido !== cnpjContratante) {
@@ -122,13 +122,16 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 }
 
 // 🔹 Fluxo completo: Gera o certificado e autentica no Serpro
-async function autenticarViaCertificado(cnpjCliente, cnpjAutorPedido, cnpjContratante) {
+async function autenticarViaCertificado(cnpjCliente) {
     try {
         console.log(`🔹 Iniciando autenticação via certificado para CNPJ: ${cnpjCliente}`);
 
-        // 🔹 Gera o certificado assinado
         const certificadoAssinado = await gerarCertificadoAssinado();
         console.log("📜 Certificado gerado com sucesso.");
+
+        // 🔹 Definição dos CNPJs corretamente
+        const cnpjContratante = "17422651000172"; // ✅ Corrigido
+        const cnpjAutorPedido = "28076286000108"; // ✅ Corrigido
 
         // 🔹 Enviar certificado para autenticação no Serpro
         const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
