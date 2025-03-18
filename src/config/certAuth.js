@@ -94,20 +94,20 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             { headers }
         );
 
-        console.log("✅ Resposta da API Serpro:", JSON.stringify(response.data, null, 2));
+        console.log("✅ Resposta da API Serpro recebida!");
 
-        // 🔹 Pega o ETag do header e extrai o Token do Procurador
+        // 🔹 Extraindo corretamente o token do procurador do ETag
         let procuradorToken = null;
         if (response.headers["etag"]) {
-            const match = response.headers["etag"].match(/autenticar_procurador_token:([\w-]+)/);
-            if (match) {
-                procuradorToken = match[1]; // Pega o valor do token dentro do ETag
+            const etagValue = response.headers["etag"];
+            if (etagValue.startsWith("autenticar_procurador_token:")) {
+                procuradorToken = etagValue.replace("autenticar_procurador_token:", "").trim();
             }
         }
 
         if (procuradorToken) {
             armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-            console.log("✅ Token do Procurador armazenado:", procuradorToken);
+            console.log("✅ Token do Procurador armazenado com sucesso:", procuradorToken);
             return { procuradorToken };
         } else {
             console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
