@@ -62,7 +62,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         // 🔹 Recupera `etag` do cache
         let etag = obterTokenDoCache("autenticar_procurador_token");
-        console.log(`🔍 ETag recuperado do cache: ${etag}`);
+        console.log(`🔍 ETag recuperado do cache (antes da requisição): ${etag}`);
 
         const payload = {
             "contratante": { "numero": cnpjContratante, "tipo": 2 },
@@ -84,7 +84,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             "Content-Type": "application/json"
         };
 
-        // 🔹 Se já temos um `etag`, enviamos para evitar reprocessamento
         if (etag) {
             headers["If-None-Match"] = etag;
             console.log("🔹 Enviando ETag no Header:", etag);
@@ -98,12 +97,15 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         console.log("✅ Resposta da API Serpro recebida!");
 
-        // 🔹 Extraindo o `etag` do header da resposta (armazenando sem modificações)
+        // 🔹 Log dos headers da resposta
+        console.log("📥 Headers da Resposta do Serpro:", JSON.stringify(response.headers, null, 2));
+
+        // 🔹 Extraindo o `etag` do header da resposta
         if (response.headers["etag"]) {
             const etagValue = response.headers["etag"];
             console.log(`📥 Novo ETag recebido: ${etagValue}`);
 
-            // 🔹 Armazena o `etag` completo no cache para análise posterior
+            // 🔹 Armazena o `etag` no cache
             armazenarTokenNoCache("autenticar_procurador_token", etagValue);
         }
 
@@ -112,12 +114,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
 
-            // 🔹 Log detalhado da resposta 304
-            console.log("📥 Resposta completa da API Serpro:", JSON.stringify(error.response.headers, null, 2));
+            // 🔹 Exibir TODOS os headers da resposta para análise
+            console.log("📥 Headers completos da resposta 304:", JSON.stringify(error.response.headers, null, 2));
 
-            // 🔹 Recuperando `etag` do cache e mostrando o valor real armazenado
+            // 🔹 Recuperando `etag` do cache
             const cachedEtag = obterTokenDoCache("autenticar_procurador_token");
-            console.log(`🔍 Token armazenado no cache: ${cachedEtag}`);
+            console.log(`🔍 Token armazenado no cache após erro 304: ${cachedEtag}`);
 
             if (cachedEtag) {
                 return { procuradorToken: cachedEtag };
