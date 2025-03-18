@@ -38,10 +38,6 @@ router.post("/das", async (req, res) => {
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
             tokens = await autenticarViaCertificado(cnpj_contribuinte);
         
-            if (!tokens) {
-                return res.status(500).json({ erro: "Erro ao autenticar via certificado no Serpro." });
-            }
-        
             // 🛑 Agora, tokens está definido e podemos acessá-lo com segurança
             procuradorToken = cache["autenticar_procurador_token"] || tokens.procuradorToken || null;
         
