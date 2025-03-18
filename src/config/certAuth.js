@@ -4,6 +4,17 @@ require('dotenv').config();
 
 const cache = {}; // 🔹 Cache para armazenar o etag/token
 
+// 🔹 Função para recuperar o token do cache
+function obterTokenDoCache(chave) {
+    return cache[chave] || null;
+}
+
+// 🔹 Função para armazenar o token do procurador no cache
+function armazenarTokenNoCache(chave, valor) {
+    cache[chave] = valor;
+    console.log(`✅ Token armazenado no cache: ${chave} => ${valor}`);
+}
+
 // 🔹 Função para gerar certificado assinado via API intermediária
 async function gerarCertificadoAssinado() {
     try {
@@ -21,12 +32,11 @@ async function gerarCertificadoAssinado() {
             headers: { 'Content-Type': 'application/json' }
         });
 
-        // 🔹 Log para depuração da resposta da API
         console.log("📜 Resposta da API intermediária:", JSON.stringify(response.data, null, 2));
 
         if (response.data && response.data.xml_base64) {
             console.log("✅ Certificado em Base64 extraído com sucesso.");
-            return response.data.xml_base64;  
+            return response.data.xml_base64;
         } else {
             console.error("❌ Erro: Certificado `xml_base64` não foi retornado pela API intermediária.");
             throw new Error('Erro ao obter certificado assinado.');
@@ -49,12 +59,10 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         }
 
         console.log("✅ Tokens obtidos com sucesso.");
-
-        // 🔹 Log dos CNPJs
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        // 🔹 Verifica se o autor do pedido é diferente do contratante e se já temos o etag armazenado
+        // 🔹 Verifica se já temos o etag armazenado
         let etagToken = cache[cnpjAutorPedido] || null;
 
         // 🔹 Definição correta do payload
@@ -75,47 +83,37 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
                 "idSistema": "AUTENTICAPROCURADOR",
                 "idServico": "ENVIOXMLASSINADO81",
                 "versaoSistema": "1.0",
-                "dados": JSON.stringify({ xml: certificadoAssinado }) 
+                "dados": JSON.stringify({ xml: certificadoAssinado })
             }
         };
-
 
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
         console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
-        // 🔹 Função para recuperar o token do cache
-function obterTokenDoCache(chave) {
-    return cache[chave] || null;
-}
-        // 1️⃣ Recupera o Token do Procurador do cache
-// 1️⃣ Recupera o Token do Procurador do cache
-const procuradorToken = obterTokenDoCache("autenticar_procurador_token");
+        // 🔹 Recupera o Token do Procurador do cache
+        const procuradorToken = obterTokenDoCache("autenticar_procurador_token");
 
-if (!procuradorToken) {
-    console.error("❌ Erro: Token do procurador não encontrado no cache.");
-    return;
-}
+        if (!procuradorToken) {
+            console.error("❌ Erro: Token do procurador não encontrado no cache.");
+            return;
+        }
 
-console.log("🆔 Token do Procurador encontrado:", procuradorToken);
+        console.log("🆔 Token do Procurador encontrado:", procuradorToken);
 
-// 2️⃣ Define os headers corretamente
-const headers = {
-    Authorization: `Bearer ${tokens.accessToken}`,
-    jwt_token: tokens.jwtToken,
-    autenticar_procurador_token: procuradorToken, // Adicionado ao header
-    "Content-Type": "application/json"
-};
+        // 🔹 Define os headers corretamente
+        const headers = {
+            Authorization: `Bearer ${tokens.accessToken}`,
+            jwt_token: tokens.jwtToken,
+            autenticar_procurador_token: procuradorToken, // Adicionado ao header
+            "Content-Type": "application/json"
+        };
 
-// 3️⃣ Faz a requisição ao Serpro com os headers corrigidos
-axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, { headers })
-    .then(response => console.log("✅ Sucesso:", response.data))
-    .catch(error => console.error("❌ Erro ao enviar requisição:", error.response ? error.response.data : error.message));
-       
-    if (etagToken && cnpjAutorPedido !== cnpjContratante) {
+        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
             console.log("⚡ Usando token etag armazenado:", etagToken);
             headers["If-None-Match"] = etagToken; // Adiciona o etag ao header
         }
 
+        // 🔹 Faz a requisição ao Serpro
         const response = await axios.post(
             'https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar',
             payload,
@@ -123,7 +121,13 @@ axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar',
         );
 
         console.log("✅ Resposta do Serpro:", response.data);
-        return response.data; 
+
+        // 🔹 Armazena o token do procurador no cache caso seja recebido
+        if (response.data && response.data.etag) {
+            armazenarTokenNoCache("autenticar_procurador_token", response.data.etag);
+        }
+
+        return response.data;
     } catch (error) {
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
@@ -131,7 +135,7 @@ axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar',
 
             if (etag) {
                 console.log("✅ Armazenando novo etag no cache:", etag);
-                cache[cnpjAutorPedido] = etag; 
+                cache[cnpjAutorPedido] = etag;
             }
 
             return { message: "Usando cache", etag };
@@ -156,7 +160,7 @@ async function autenticarViaCertificado(cnpjCliente) {
 
         // 🔹 Enviar certificado para autenticação no Serpro
         const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
-        
+
         console.log('🚀 Autenticação via certificado concluída com sucesso.');
         return tokens;
     } catch (error) {
