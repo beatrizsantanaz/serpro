@@ -9,7 +9,7 @@ require('dotenv').config();
 const router = express.Router();
 
 const WEBHOOK_URLS = {
-    "CF Contabilidade": "https://webhook.cfcontabilidade.com",
+    "CF Contabilidade": "https://contabhub.app.n8n.cloud/webhook/176c135d-2964-4827-8aa7-ab3d85ddb3bb",
     "CF Smart": "https://n8n-n8n.k6fcpj.easypanel.host/webhook/32d4027e-cb57-49b1-85d5-76a472d001d0"
 };
 
