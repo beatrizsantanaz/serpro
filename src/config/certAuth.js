@@ -101,15 +101,13 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("📥 Headers da Resposta do Serpro:", JSON.stringify(response.headers, null, 2));
 
         // 🔹 Armazena o ETag COMPLETO no cache
-        if (response.headers["etag"]) {
-            let etagValue = response.headers["etag"];
-            
-            console.log(`📥 ETag recebido: ${etagValue}`);
-
-            // 🔹 Salva no cache **EXATAMENTE COMO ESTÁ** para reutilização
-            armazenarTokenNoCache("autenticar_procurador_token", etagValue);
-            
-            return { etag: etagValue };
+        if (response.headers) {
+            console.log("📥 Headers completos recebidos:", JSON.stringify(response.headers, null, 2));
+        
+            // 🔹 Armazena TODOS OS HEADERS no cache para inspeção
+            armazenarTokenNoCache("response_headers", response.headers);
+        
+            return { headers: response.headers };
         }
 
         return { status: "Sucesso" };
