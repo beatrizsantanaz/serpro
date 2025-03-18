@@ -104,8 +104,20 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         if (response.headers) {
             console.log("📥 Headers completos recebidos:", JSON.stringify(response.headers, null, 2));
         
-            // 🔹 Armazena TODOS OS HEADERS no cache para inspeção
-            armazenarTokenNoCache("response_headers", response.headers);
+            // 🔹 Extraindo e armazenando o `etag`
+            if (response.headers["etag"]) {
+                let etagValue = response.headers["etag"].replace(/"/g, ""); // Remover aspas
+                console.log(`📥 ETag bruto recebido: ${etagValue}`);
+        
+                // 🔹 Verifica se o `etag` contém o token correto e extrai apenas a parte necessária
+                if (etagValue.startsWith("autenticar_procurador_token:")) {
+                    let procuradorToken = etagValue.split(":")[1]; // Pega apenas o valor após ":"
+                    console.log(`✅ Token do Procurador extraído: ${procuradorToken}`);
+        
+                    // 🔹 Armazena o token corretamente no cache
+                    armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
+                }
+            }
         
             return { headers: response.headers };
         }
