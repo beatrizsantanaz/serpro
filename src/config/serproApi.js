@@ -2,6 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const { getTokens } = require("./auth");
 const { getLastTwoMonths } = require("../utils/dateUtils");
+const procuradorToken = cache["autenticar_procurador_token"] || null;
 
 const router = express.Router();
 
@@ -58,6 +59,14 @@ router.get("/das", async (req, res) => {
         },
       }
     );
+
+    // 🔹 Adicionar token do procurador se estiver disponível
+if (procuradorToken) {
+  headers["autenticar_procurador_token"] = procuradorToken;
+  console.log("✅ Token do Procurador incluído no header.");
+} else {
+  console.warn("⚠️ Token do Procurador NÃO encontrado no cache.");
+}
 
     res.json(response.data);
   } catch (error) {

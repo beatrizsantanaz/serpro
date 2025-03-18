@@ -27,6 +27,7 @@ router.post("/das", async (req, res) => {
         const periodo = periodoApuracao || getLastTwoMonths()[1];
 
         let tokens;
+        let procuradorToken = null;
 
         if (cnpj_contratante === cnpj_autor) {
             // 🔹 O contratante tem procuração → Autenticação normal
@@ -40,6 +41,13 @@ router.post("/das", async (req, res) => {
             if (!tokens) {
                 return res.status(500).json({ erro: "Erro ao autenticar via certificado no Serpro." });
             }
+
+            // 🛑 Recupera o Token do Procurador do Cache
+            procuradorToken = tokens.procuradorToken || null;
+            if (!procuradorToken) {
+                return res.status(500).json({ erro: "Erro: Token do Procurador não encontrado após autenticação." });
+            }
+            console.log("✅ Token do Procurador obtido:", procuradorToken);
         }
 
         if (!tokens || !tokens.accessToken) {
@@ -93,6 +101,12 @@ router.post("/das", async (req, res) => {
                 }
             }
         );
+
+         // 🔹 Adiciona o Token do Procurador, se necessário
+         if (procuradorToken) {
+            headers["autenticar_procurador_token"] = procuradorToken;
+            console.log("✅ Token do Procurador incluído no header.");
+        }
 
         console.log("✅ Resposta da API do Serpro:", response.data);
 
