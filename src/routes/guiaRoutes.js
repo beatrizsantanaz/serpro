@@ -27,36 +27,34 @@ router.post("/das", async (req, res) => {
         const periodo = periodoApuracao || getLastTwoMonths()[1];
 
         console.log("📦 Cache atual antes de pegar o Token do Procurador:", JSON.stringify(cache, null, 2));
-        
-        let tokens;
-        let procuradorToken = cache["autenticar_procurador_token"] || tokens.procuradorToken || null;
-        console.log("🔍 Token do Procurador obtido:", procuradorToken);
 
+        let tokens = null;
+        let procuradorToken = cache["autenticar_procurador_token"] || null;
+        
         if (cnpj_contratante === cnpj_autor) {
-            // 🔹 O contratante tem procuração → Autenticação normal
             console.log("✅ O contratante tem procuração. Autenticando via getTokens...");
             tokens = await getTokens();
         } else {
-            // 🔹 O contratante NÃO tem procuração → Autenticação via certificado
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
             tokens = await autenticarViaCertificado(cnpj_contribuinte);
-
+        
             if (!tokens) {
                 return res.status(500).json({ erro: "Erro ao autenticar via certificado no Serpro." });
             }
-
-            // 🛑 Recupera o Token do Procurador do Cache
-            procuradorToken = cache["procurador_token"] || tokens.procuradorToken || null;
+        
+            // 🛑 Agora, tokens está definido e podemos acessá-lo com segurança
+            procuradorToken = cache["autenticar_procurador_token"] || tokens.procuradorToken || null;
+        
             if (!procuradorToken) {
                 return res.status(500).json({ erro: "Erro: Token do Procurador não encontrado após autenticação." });
             }
             console.log("✅ Token do Procurador obtido:", procuradorToken);
         }
-
+        
         if (!tokens || !tokens.accessToken) {
             return res.status(500).json({ erro: "Erro ao obter tokens do Serpro" });
         }
-
+        
         const { accessToken, jwtToken } = tokens;
 
         let requestBody;
