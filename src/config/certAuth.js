@@ -62,7 +62,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         let etagToken = cache[cnpjAutorPedido] || null;
 
-        // 🔹 Definição correta do payload
         const payload = {
             "contratante": {
                 "numero": cnpjContratante,
@@ -85,7 +84,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         };
 
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
-        console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
         const headers = {
             Authorization: `Bearer ${tokens.accessToken}`,
@@ -93,11 +91,10 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             "Content-Type": "application/json"
         };
 
-         if (etagToken && cnpjAutorPedido !== cnpjContratante) {
+        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
             headers["If-None-Match"] = etagToken;
         }
 
-        // 🔹 Faz a requisição ao Serpro
         const response = await axios.post(
             'https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar',
             payload,
@@ -105,36 +102,38 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         );
 
         console.log("✅ Resposta da API Serpro:", JSON.stringify(response.data, null, 2));
-        console.log("📥 Headers da resposta:", JSON.stringify(response.headers, null, 2));
 
-        // 🔹 Verifica se o token do procurador veio no header da resposta
         const procuradorToken = response.headers['autenticar_procurador_token'] || 
-                        response.headers['Autenticar-Procurador-Token'] || 
-                        response.headers['AUTENTICAR_PROCURADOR_TOKEN'];
+                                response.headers['Autenticar-Procurador-Token'] || 
+                                response.headers['AUTENTICAR_PROCURADOR_TOKEN'];
 
-if (procuradorToken) {
-    armazenarTokenNoCache("procurador_token", procuradorToken);
-    console.log("✅ Token do Procurador armazenado:", procuradorToken);
-    return { procuradorToken }; // 🔹 Agora retornamos corretamente o token
-} else {
-    console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
-    throw new Error("Erro ao obter o Token do Procurador.");
-}
+        if (procuradorToken) {
+            cache["autenticar_procurador_token"] = procuradorToken;
+            console.log("✅ Token do Procurador armazenado:", procuradorToken);
+            return { procuradorToken };
+        } else {
+            console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
+            throw new Error("Erro ao obter o Token do Procurador.");
+        }
     } catch (error) {
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
-            const etag = error.response.headers['etag'];
-            if (etag) {
-                console.log("✅ Armazenando novo etag no cache:", etag);
-                cache[cnpjAutorPedido] = etag;
+
+            // Verifica se já temos um token armazenado no cache
+            const cachedToken = cache["autenticar_procurador_token"];
+            if (cachedToken) {
+                console.log("✅ Recuperando Token do Procurador do cache:", cachedToken);
+                return { procuradorToken: cachedToken };
             }
-            return cache["autenticar_procurador_token"] || null;
+
+            throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
         }
 
         console.error("❌ Erro ao autenticar no Serpro:", error.response ? error.response.data : error.message);
         return null;
     }
 }
+
 
 // 🔹 Fluxo completo: Gera o certificado e autentica no Serpro
 async function autenticarViaCertificado(cnpjCliente) {

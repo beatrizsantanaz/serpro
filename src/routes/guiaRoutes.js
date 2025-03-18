@@ -23,30 +23,24 @@ router.post("/das", async (req, res) => {
             });
         }
 
-        // 🔹 Determinar período de apuração
         const periodo = periodoApuracao || getLastTwoMonths()[1];
 
         console.log("📦 Cache atual antes de pegar o Token do Procurador:", JSON.stringify(cache, null, 2));
 
-         // 🔹 Se não há procuração, precisa autenticar via Certificado primeiro
+        let procuradorToken = cache["autenticar_procurador_token"] || null;
+
         if (cnpj_contratante !== cnpj_autor) {
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
             const tokens = await autenticarViaCertificado(cnpj_contribuinte);
 
-           if (!tokens || !tokens.procuradorToken) {  
-        return res.status(500).json({ erro: "Falha na autenticação via certificado." });
-    }
-
-            const procuradorToken = tokens.procuradorToken; // ✅ Definindo corretamente
-            
-            console.log("✅ Retornando ao fluxo com Token do Procurador:", procuradorToken);
-            cache["procurador_token"] = procuradorToken;
-        
-            if (!procuradorToken) {
-                return res.status(500).json({ erro: "Erro: Token do Procurador não encontrado após autenticação." });
+            if (!tokens || !tokens.procuradorToken) {  
+                return res.status(500).json({ erro: "Falha na autenticação via certificado." });
             }
+
+            procuradorToken = tokens.procuradorToken;
+            cache["autenticar_procurador_token"] = procuradorToken;
+            console.log("✅ Token do Procurador obtido:", procuradorToken);
         } else {
-            // 🔹 Se há procuração, autentica normalmente
             console.log("✅ O contratante tem procuração. Autenticando via getTokens...");
             tokens = await getTokens();
         }
@@ -60,7 +54,6 @@ router.post("/das", async (req, res) => {
         let requestBody;
 
         if (recalcular) {
-            // 🔹 Recalcular DAS
             const dataConsolidacao = getFutureConsolidationDate(5);
             requestBody = {
                 contratante: { numero: cnpj_contratante.trim(), tipo: 2 },
@@ -75,7 +68,6 @@ router.post("/das", async (req, res) => {
             };
             console.log("🔍 Recalculando DAS com:", requestBody);
         } else {
-            // 🔹 Consultar DAS normal
             requestBody = {
                 contratante: { numero: cnpj_contratante.trim(), tipo: 2 },
                 autorPedidoDados: { numero: cnpj_autor.trim(), tipo: 2 },
@@ -90,28 +82,25 @@ router.post("/das", async (req, res) => {
             console.log("🔍 Consultando DAS com:", requestBody);
         }
 
-       // 🔹 Definir cabeçalhos da requisição
-const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    jwt_token: jwtToken,
-    "Content-Type": "application/json"
-};
+        const headers = {
+            Authorization: `Bearer ${accessToken}`,
+            jwt_token: jwtToken,
+            "Content-Type": "application/json"
+        };
 
-  // 🔹 Adiciona o Token do Procurador, se necessário
-  if (procuradorToken) {
-    headers["autenticar_procurador_token"] = procuradorToken;
-    console.log("✅ Token do Procurador incluído no header.");
-}
+        if (procuradorToken) {
+            headers["autenticar_procurador_token"] = procuradorToken;
+            console.log("✅ Token do Procurador incluído no header:", procuradorToken);
+        }
 
-// 🔹 Enviar requisição ao Serpro com os cabeçalhos corretos
-const response = await axios.post(
-    "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Emitir",
-    requestBody,
-    { headers } // Envia o objeto `headers` com os valores corretos
-);
+        const response = await axios.post(
+            "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Emitir",
+            requestBody,
+            { headers }
+        );
 
+        console.log("✅ Resposta da API Serpro:", JSON.stringify(response.data, null, 2));
 
-        // 🔹 Enviar webhook em segundo plano
         const webhookUrl = WEBHOOK_URLS[cliente] || "https://contabhub.app.n8n.cloud/webhook/default";
         const webhookPayload = {
             ...response.data,
@@ -134,5 +123,6 @@ const response = await axios.post(
         res.status(500).json({ erro: "Erro ao processar DAS", detalhes: error.response ? error.response.data : error.message });
     }
 });
+
 
 module.exports = router;
