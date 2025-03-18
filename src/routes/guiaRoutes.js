@@ -39,6 +39,7 @@ router.post("/das", async (req, res) => {
             
             procuradorToken = resultadoCertAuth.procuradorToken;
             cache["autenticar_procurador_token"] = procuradorToken;
+        }
             
         // 📌 Obtendo os tokens de autenticação do Serpro (Bearer e JWT)
         const tokens = await getTokens();
