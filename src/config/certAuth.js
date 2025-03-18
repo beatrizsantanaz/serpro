@@ -104,13 +104,21 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         if (response.headers["etag"]) {
             let etagValue = response.headers["etag"];
 
-            // 🔹 Remover aspas extras e prefixo "autenticar_procurador_token:"
-            etagValue = etagValue.replace(/"/g, "").replace("autenticar_procurador_token:", "");
+            // ✅ **Corrigindo extração do token**
+            const regex = /autenticar_procurador_token:([\w-]+)/;
+            const match = etagValue.match(regex);
 
-            console.log(`📥 Token do Procurador extraído: ${etagValue}`);
+            if (match && match[1]) {
+                const procuradorToken = match[1];
 
-            // 🔹 Armazena o `etag` no cache
-            armazenarTokenNoCache("autenticar_procurador_token", etagValue);
+                console.log(`📥 Token do Procurador extraído corretamente: ${procuradorToken}`);
+
+                // 🔹 Armazena o token no cache
+                armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
+                return { procuradorToken };
+            } else {
+                console.warn("⚠️ O token do procurador não foi encontrado dentro do ETag!");
+            }
         }
 
         return { status: "Sucesso" };
@@ -121,12 +129,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             // 🔹 Exibir TODOS os headers da resposta para análise
             console.log("📥 Headers completos da resposta 304:", JSON.stringify(error.response.headers, null, 2));
 
-            // 🔹 Recuperando `etag` do cache
-            const cachedEtag = obterTokenDoCache("autenticar_procurador_token");
-            console.log(`🔍 Token armazenado no cache após erro 304: ${cachedEtag}`);
+            // ✅ **Agora recuperamos o token corretamente do cache**
+            const cachedToken = obterTokenDoCache("autenticar_procurador_token");
+            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedToken}`);
 
-            if (cachedEtag) {
-                return { procuradorToken: cachedEtag };
+            if (cachedToken) {
+                return { procuradorToken: cachedToken };
             }
 
             throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
@@ -136,7 +144,6 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         return null;
     }
 }
-
 // 🔹 Fluxo completo: Gera o certificado e autentica no Serpro
 async function autenticarViaCertificado(cnpjCliente) {
     try {
