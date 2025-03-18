@@ -96,8 +96,14 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         console.log("✅ Resposta da API Serpro:", JSON.stringify(response.data, null, 2));
 
-        // 🔹 Pega o ETag como Token do Procurador
-        const procuradorToken = response.headers["etag"] || null;
+        // 🔹 Pega o ETag do header e extrai o Token do Procurador
+        let procuradorToken = null;
+        if (response.headers["etag"]) {
+            const match = response.headers["etag"].match(/autenticar_procurador_token:([\w-]+)/);
+            if (match) {
+                procuradorToken = match[1]; // Pega o valor do token dentro do ETag
+            }
+        }
 
         if (procuradorToken) {
             armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
