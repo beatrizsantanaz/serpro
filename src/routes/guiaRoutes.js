@@ -31,17 +31,15 @@ router.post("/das", async (req, res) => {
 
         if (cnpj_contratante !== cnpj_autor) {
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
-            const tokens = await autenticarViaCertificado(cnpj_contribuinte);
+            const resultadoCertAuth = await autenticarViaCertificado(cnpj_contribuinte);
 
             if (!resultadoCertAuth || !resultadoCertAuth.procuradorToken) {  
                 return res.status(500).json({ erro: "Falha na autenticação via certificado." });
             }        
-
+            
             procuradorToken = resultadoCertAuth.procuradorToken;
             cache["autenticar_procurador_token"] = procuradorToken;
-            console.log("✅ Token do Procurador obtido:", procuradorToken);
-        }
-        
+            
         // 📌 Obtendo os tokens de autenticação do Serpro (Bearer e JWT)
         const tokens = await getTokens();
         
