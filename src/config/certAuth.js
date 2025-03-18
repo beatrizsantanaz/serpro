@@ -83,10 +83,21 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
         console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
+        // 1️⃣ Recupera o Token do Procurador do cache
+const procuradorToken = obterTokenDoCache("autenticar_procurador_token");
+
+if (!procuradorToken) {
+    console.error("❌ Erro: Token do procurador não encontrado no cache.");
+    return;
+}
+
+console.log("🆔 Token do Procurador encontrado:", procuradorToken);
+
         // 🔹 Headers da requisição
         const headers = {
             Authorization: `Bearer ${tokens.accessToken}`,
             jwt_token: tokens.jwtToken,
+            autenticar_procurador_token: procuradorToken, // Adicionado ao header
             "Content-Type": "application/json"
         };
 
