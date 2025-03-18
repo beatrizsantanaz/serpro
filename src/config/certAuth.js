@@ -60,7 +60,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        // 🔹 Recupera `etag` do cache
+        // Recupera `etag` do cache
         let etag = obterTokenDoCache("autenticar_procurador_token");
         console.log(`🔍 ETag recuperado do cache (antes da requisição): ${etag}`);
 
@@ -97,29 +97,18 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         console.log("✅ Resposta da API Serpro recebida!");
 
-        // 🔹 Log dos headers da resposta
-        console.log("📥 Headers da Resposta do Serpro:", JSON.stringify(response.headers, null, 2));
+        // Extrai e armazena o ETag no cache
+        if (response.headers && response.headers['etag']) {
+            let etagValue = response.headers['etag'].replace(/"/g, ''); // Remove aspas duplas
+            console.log(`📥 ETag bruto recebido: ${etagValue}`);
 
-        // 🔹 Armazena o ETag COMPLETO no cache
-        if (response.headers) {
-            console.log("📥 Headers completos recebidos:", JSON.stringify(response.headers, null, 2));
-        
-            // 🔹 Extraindo e armazenando o `etag`
-            if (response.headers["etag"]) {
-                let etagValue = response.headers["etag"].replace(/"/g, ""); // Remover aspas
-                console.log(`📥 ETag bruto recebido: ${etagValue}`);
-        
-                // 🔹 Verifica se o `etag` contém o token correto e extrai apenas a parte necessária
-                if (etagValue.startsWith("autenticar_procurador_token:")) {
-                    let procuradorToken = etagValue.split(":")[1]; // Pega apenas o valor após ":"
-                    console.log(`✅ Token do Procurador extraído: ${procuradorToken}`);
-        
-                    // 🔹 Armazena o token corretamente no cache
-                    armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-                }
+            if (etagValue.startsWith("autenticar_procurador_token:")) {
+                let procuradorToken = etagValue.split(":")[1]; // Extrai o token após ":"
+                console.log(`✅ Token do Procurador extraído: ${procuradorToken}`);
+
+                // Armazena o token no cache
+                armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
             }
-        
-            return { headers: response.headers };
         }
 
         return { status: "Sucesso" };
@@ -127,15 +116,15 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         if (error.response && error.response.status === 304) {
             console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
 
-            // 🔹 Exibir TODOS os headers da resposta para análise
+            // Exibe todos os headers da resposta para análise
             console.log("📥 Headers completos da resposta 304:", JSON.stringify(error.response.headers, null, 2));
 
-            // 🔹 Recuperar o `etag` diretamente do cache
-            const cachedEtag = obterTokenDoCache("autenticar_procurador_token");
-            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedEtag}`);
+            // Recupera o token do cache
+            const cachedToken = obterTokenDoCache("autenticar_procurador_token");
+            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedToken}`);
 
-            if (cachedEtag) {
-                return { etag: cachedEtag };
+            if (cachedToken) {
+                return { etag: cachedToken };
             }
 
             throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
@@ -145,6 +134,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         return null;
     }
 }
+
 // 🔹 Fluxo completo: Gera o certificado e autentica no Serpro
 async function autenticarViaCertificado(cnpjCliente) {
     try {
