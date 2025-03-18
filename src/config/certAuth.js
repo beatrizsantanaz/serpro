@@ -13,6 +13,7 @@ function obterTokenDoCache(chave) {
 function armazenarTokenNoCache(chave, valor) {
     cache[chave] = valor;
     console.log(`✅ Token armazenado no cache: ${chave} => ${valor}`);
+    console.log("📦 Estado atual do cache:", JSON.stringify(cache, null, 2));
 }
 
 // 🔹 Função para gerar certificado assinado via API intermediária

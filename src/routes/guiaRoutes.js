@@ -26,8 +26,11 @@ router.post("/das", async (req, res) => {
         // 🔹 Determinar período de apuração
         const periodo = periodoApuracao || getLastTwoMonths()[1];
 
+        console.log("📦 Cache atual antes de pegar o Token do Procurador:", JSON.stringify(cache, null, 2));
+        
         let tokens;
-        let procuradorToken = null;
+        let procuradorToken = cache["autenticar_procurador_token"] || tokens.procuradorToken || null;
+        console.log("🔍 Token do Procurador obtido:", procuradorToken);
 
         if (cnpj_contratante === cnpj_autor) {
             // 🔹 O contratante tem procuração → Autenticação normal
