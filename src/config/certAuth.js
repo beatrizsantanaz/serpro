@@ -109,12 +109,11 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
 
         // 🔹 Verifica se o token do procurador veio no header da resposta
         if (procuradorToken) {
-            armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-            console.log("✅ Token do Procurador armazenado:", procuradorToken);
-            return procuradorToken; // 🔹 Agora retornamos explicitamente o token!
+            armazenarTokenNoCache("procurador_token", procuradorToken);
+            return { procuradorToken };
         } else {
             console.warn("⚠️ Token do procurador não encontrado no header da resposta.");
-            return null;
+            throw new Error("Erro ao obter o Token do Procurador.");
         }
     } catch (error) {
         if (error.response && error.response.status === 304) {

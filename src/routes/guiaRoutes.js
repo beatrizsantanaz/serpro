@@ -33,13 +33,14 @@ router.post("/das", async (req, res) => {
             console.log("⚠️ O contratante NÃO tem procuração. Autenticando via certificado...");
             tokens = await autenticarViaCertificado(cnpj_contribuinte);
 
-            if (!procuradorToken) {
+            // 🛑 Certifique-se de extrair o Token do Procurador antes de usá-lo
+            procuradorToken = tokens.procuradorToken;
+            
+            if (!procuradorToken) {  
                 return res.status(500).json({ erro: "Falha na autenticação via certificado." });
             }
-            console.log("✅ Retornando ao fluxo com Token do Procurador:", procuradorToken);
             
-            // 🛑 Armazenando o Token do Procurador
-            procuradorToken = tokens.procuradorToken;
+            console.log("✅ Retornando ao fluxo com Token do Procurador:", procuradorToken);
             cache["procurador_token"] = procuradorToken;
         
             if (!procuradorToken) {
