@@ -83,7 +83,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
         console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
+        // 🔹 Função para recuperar o token do cache
+function obterTokenDoCache(chave) {
+    return cache[chave] || null;
+}
         // 1️⃣ Recupera o Token do Procurador do cache
+// 1️⃣ Recupera o Token do Procurador do cache
 const procuradorToken = obterTokenDoCache("autenticar_procurador_token");
 
 if (!procuradorToken) {
@@ -93,15 +98,20 @@ if (!procuradorToken) {
 
 console.log("🆔 Token do Procurador encontrado:", procuradorToken);
 
-        // 🔹 Headers da requisição
-        const headers = {
-            Authorization: `Bearer ${tokens.accessToken}`,
-            jwt_token: tokens.jwtToken,
-            autenticar_procurador_token: procuradorToken, // Adicionado ao header
-            "Content-Type": "application/json"
-        };
+// 2️⃣ Define os headers corretamente
+const headers = {
+    Authorization: `Bearer ${tokens.accessToken}`,
+    jwt_token: tokens.jwtToken,
+    autenticar_procurador_token: procuradorToken, // Adicionado ao header
+    "Content-Type": "application/json"
+};
 
-        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
+// 3️⃣ Faz a requisição ao Serpro com os headers corrigidos
+axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, { headers })
+    .then(response => console.log("✅ Sucesso:", response.data))
+    .catch(error => console.error("❌ Erro ao enviar requisição:", error.response ? error.response.data : error.message));
+       
+    if (etagToken && cnpjAutorPedido !== cnpjContratante) {
             console.log("⚡ Usando token etag armazenado:", etagToken);
             headers["If-None-Match"] = etagToken; // Adiciona o etag ao header
         }
