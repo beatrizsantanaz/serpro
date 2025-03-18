@@ -2,6 +2,8 @@ const axios = require('axios');
 const { getTokens } = require('./auth'); // 🔹 Importando função de autenticação
 require('dotenv').config();
 
+const cache = {}; // 🔹 Cache para armazenar o etag/token
+
 // 🔹 Função para gerar certificado assinado via API intermediária
 async function gerarCertificadoAssinado() {
     try {
@@ -22,10 +24,9 @@ async function gerarCertificadoAssinado() {
         // 🔹 Log para depuração da resposta da API
         console.log("📜 Resposta da API intermediária:", JSON.stringify(response.data, null, 2));
 
-        // 🔹 Extraindo apenas o campo `xml_base64`
         if (response.data && response.data.xml_base64) {
             console.log("✅ Certificado em Base64 extraído com sucesso.");
-            return response.data.xml_base64;  // ✅ Pegando apenas o valor correto
+            return response.data.xml_base64;  
         } else {
             console.error("❌ Erro: Certificado `xml_base64` não foi retornado pela API intermediária.");
             throw new Error('Erro ao obter certificado assinado.');
@@ -36,12 +37,11 @@ async function gerarCertificadoAssinado() {
     }
 }
 
-
 // 🔹 Função para autenticar no Serpro usando o certificado assinado
-async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
+async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante) {
     try {
         console.log("🔄 Obtendo tokens de autenticação...");
-        const tokens = await getTokens(); // 🔹 Obtendo accessToken e jwtToken
+        const tokens = await getTokens();
 
         if (!tokens || !tokens.accessToken) {
             console.error("❌ Erro ao obter tokens do Serpro.");
@@ -50,16 +50,20 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
 
         console.log("✅ Tokens obtidos com sucesso.");
 
-        // 🔹 Log para verificar qual CNPJ está sendo enviado
+        // 🔹 Log dos CNPJs
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
+        console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
+
+        // 🔹 Verifica se o autor do pedido é diferente do contratante e se já temos o etag armazenado
+        let etagToken = cache[cnpjAutorPedido] || null;
 
         const payload = {
             "contratante": {
-                "numero": "17422651000172",
+                "numero": cnpjContratante,
                 "tipo": 2
             },
             "autorPedidoDados": {
-                "numero": "28076286000108",
+                "numero": cnpjAutorPedido,
                 "tipo": 2
             },
             "contribuinte": {
@@ -70,41 +74,64 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente) {
                 "idSistema": "AUTENTICAPROCURADOR",
                 "idServico": "ENVIOXMLASSINADO81",
                 "versaoSistema": "1.0",
-                "dados": JSON.stringify({ xml: certificadoAssinado }) // 🔹 Agora o certificado correto é enviado
+                "dados": JSON.stringify({ xml: certificadoAssinado }) 
             }
         };
 
         console.log("🚀 Enviando certificado assinado para autenticação no Serpro...");
-        console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2)); // 🔹 Log do payload completo
+        console.log("📜 Payload enviado:", JSON.stringify(payload, null, 2));
 
-        const response = await axios.post('https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar', payload, {
-            
-            headers: {
-                Authorization: `Bearer ${tokens.accessToken}`, // 🔹 Agora passamos o token correto
-                jwt_token: tokens.jwtToken, // 🔹 Enviando JWT Token no header
-                "Content-Type": "application/json"
-            }
-        });
+        // 🔹 Headers da requisição
+        const headers = {
+            Authorization: `Bearer ${tokens.accessToken}`,
+            jwt_token: tokens.jwtToken,
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        };
+
+        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
+            console.log("⚡ Usando token etag armazenado:", etagToken);
+            headers["If-None-Match"] = etagToken; // Adiciona o etag ao header
+        }
+
+        const response = await axios.post(
+            'https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Apoiar',
+            payload,
+            { headers }
+        );
 
         console.log("✅ Resposta do Serpro:", response.data);
-        return response.data; // 🔹 Retorna os dados da autenticação do Serpro
+        return response.data; 
     } catch (error) {
+        if (error.response && error.response.status === 304) {
+            console.warn("⚠️ Resposta 304: Dados não modificados, recuperando do cache...");
+            const etag = error.response.headers['etag'];
+
+            if (etag) {
+                console.log("✅ Armazenando novo etag no cache:", etag);
+                cache[cnpjAutorPedido] = etag; 
+            }
+
+            return { message: "Usando cache", etag };
+        }
+
         console.error("❌ Erro ao autenticar no Serpro:", error.response ? error.response.data : error.message);
         throw error;
     }
 }
 
 // 🔹 Fluxo completo: Gera o certificado e autentica no Serpro
-async function autenticarViaCertificado(cnpjCliente) {
+async function autenticarViaCertificado(cnpjCliente, cnpjAutorPedido, cnpjContratante) {
     try {
         console.log(`🔹 Iniciando autenticação via certificado para CNPJ: ${cnpjCliente}`);
 
-        // 1. Gerar certificado assinado
+        // 🔹 Gera o certificado assinado
         const certificadoAssinado = await gerarCertificadoAssinado();
-        console.log("📜 Certificado gerado:", certificadoAssinado);
+        console.log("📜 Certificado gerado com sucesso.");
 
-        // 2. Enviar certificado para autenticação no Serpro
-        const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente);
+        // 🔹 Enviar certificado para autenticação no Serpro
+        const tokens = await autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPedido, cnpjContratante);
         
         console.log('🚀 Autenticação via certificado concluída com sucesso.');
         return tokens;
