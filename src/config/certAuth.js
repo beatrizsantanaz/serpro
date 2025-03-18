@@ -60,7 +60,7 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         console.log(`📌 Enviando CNPJ do contribuinte: ${cnpjCliente}`);
         console.log(`📌 Contratante: ${cnpjContratante} | AutorPedidoDados: ${cnpjAutorPedido}`);
 
-        let etagToken = cache[cnpjAutorPedido] || null;
+        let etag = cache[cnpjAutorPedido] || null;
 
         const payload = {
             "contratante": {
@@ -91,8 +91,8 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             "Content-Type": "application/json"
         };
 
-        if (etagToken && cnpjAutorPedido !== cnpjContratante) {
-            headers["If-None-Match"] = etagToken;
+        if (etag && cnpjAutorPedido !== cnpjContratante) {
+            headers["If-None-Match"] = etag;
         }
 
         const response = await axios.post(
