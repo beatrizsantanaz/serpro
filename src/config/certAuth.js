@@ -100,25 +100,16 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
         // 🔹 Log dos headers da resposta
         console.log("📥 Headers da Resposta do Serpro:", JSON.stringify(response.headers, null, 2));
 
-        // 🔹 Extraindo o `etag` do header da resposta
+        // 🔹 Armazena o ETag COMPLETO no cache
         if (response.headers["etag"]) {
             let etagValue = response.headers["etag"];
+            
+            console.log(`📥 ETag recebido: ${etagValue}`);
 
-            // ✅ **Corrigindo extração do token**
-            const regex = /autenticar_procurador_token:([\w-]+)/;
-            const match = etagValue.match(regex);
-
-            if (match && match[1]) {
-                const procuradorToken = match[1];
-
-                console.log(`📥 Token do Procurador extraído corretamente: ${procuradorToken}`);
-
-                // 🔹 Armazena o token no cache
-                armazenarTokenNoCache("autenticar_procurador_token", procuradorToken);
-                return { procuradorToken };
-            } else {
-                console.warn("⚠️ O token do procurador não foi encontrado dentro do ETag!");
-            }
+            // 🔹 Salva no cache **EXATAMENTE COMO ESTÁ** para reutilização
+            armazenarTokenNoCache("autenticar_procurador_token", etagValue);
+            
+            return { etag: etagValue };
         }
 
         return { status: "Sucesso" };
@@ -129,12 +120,12 @@ async function autenticarNoSerpro(certificadoAssinado, cnpjCliente, cnpjAutorPed
             // 🔹 Exibir TODOS os headers da resposta para análise
             console.log("📥 Headers completos da resposta 304:", JSON.stringify(error.response.headers, null, 2));
 
-            // ✅ **Agora recuperamos o token corretamente do cache**
-            const cachedToken = obterTokenDoCache("autenticar_procurador_token");
-            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedToken}`);
+            // 🔹 Recuperar o `etag` diretamente do cache
+            const cachedEtag = obterTokenDoCache("autenticar_procurador_token");
+            console.log(`🔍 Token do Procurador recuperado do cache após erro 304: ${cachedEtag}`);
 
-            if (cachedToken) {
-                return { procuradorToken: cachedToken };
+            if (cachedEtag) {
+                return { etag: cachedEtag };
             }
 
             throw new Error("❌ Nenhum Token do Procurador encontrado no cache.");
