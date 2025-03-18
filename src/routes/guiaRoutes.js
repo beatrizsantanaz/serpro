@@ -2,7 +2,7 @@ const express = require("express");
 const axios = require("axios");
 const { getTokens } = require("../config/auth");
 const { getLastTwoMonths, getFutureConsolidationDate } = require("../utils/dateUtils");
-const { autenticarViaCertificado } = require("../config/certAuth");
+const { autenticarViaCertificado, cache } = require("../config/certAuth");
 
 require('dotenv').config();
 
@@ -43,7 +43,7 @@ router.post("/das", async (req, res) => {
             }
 
             // 🛑 Recupera o Token do Procurador do Cache
-            procuradorToken = tokens.procuradorToken || null;
+            procuradorToken = cache["procurador_token"] || tokens.procuradorToken || null;
             if (!procuradorToken) {
                 return res.status(500).json({ erro: "Erro: Token do Procurador não encontrado após autenticação." });
             }
@@ -89,28 +89,26 @@ router.post("/das", async (req, res) => {
             console.log("🔍 Consultando DAS com:", requestBody);
         }
 
-        // 🔹 Enviar requisição ao Serpro
-        const response = await axios.post(
-            "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Emitir",
-            requestBody,
-            {
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    jwt_token: jwtToken,
-                    "Content-Type": "application/json"
-                }
-            }
-        );
+       // 🔹 Definir cabeçalhos da requisição
+const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    jwt_token: jwtToken,
+    "Content-Type": "application/json"
+};
 
-         // 🔹 Adiciona o Token do Procurador, se necessário
-         if (procuradorToken) {
-            headers["autenticar_procurador_token"] = procuradorToken;
-            console.log("✅ Token do Procurador incluído no header.");
-        }
+// 🔹 Adiciona o Token do Procurador, se necessário
+if (procuradorToken) {
+    headers["autenticar_procurador_token"] = procuradorToken;
+    console.log("✅ Token do Procurador incluído no header.");
+}
 
-        console.log("✅ Resposta da API do Serpro:", response.data);
+// 🔹 Enviar requisição ao Serpro com os cabeçalhos corretos
+const response = await axios.post(
+    "https://gateway.apiserpro.serpro.gov.br/integra-contador/v1/Emitir",
+    requestBody,
+    { headers } // Envia o objeto `headers` com os valores corretos
+);
 
-        res.status(200).json({ sucesso: true, dadosRetornados: response.data });
 
         // 🔹 Enviar webhook em segundo plano
         const webhookUrl = WEBHOOK_URLS[cliente] || "https://contabhub.app.n8n.cloud/webhook/default";

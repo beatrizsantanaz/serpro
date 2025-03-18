@@ -165,4 +165,4 @@ async function autenticarViaCertificado(cnpjCliente) {
     }
 }
 
-module.exports = { autenticarViaCertificado };
+module.exports = { autenticarViaCertificado, cache };
